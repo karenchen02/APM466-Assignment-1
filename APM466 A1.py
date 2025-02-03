@@ -3,7 +3,7 @@
 
 # # Imports
 
-# In[70]:
+# In[90]:
 
 
 import pandas as pd
@@ -20,7 +20,7 @@ import matplotlib.pyplot as plt
 
 # # Read in Data
 
-# In[71]:
+# In[91]:
 
 
 # Read in Data
@@ -46,7 +46,7 @@ print("Short bonds first few rows:\n", short_bonds.head())
 
 # # Ten Bond Selection
 
-# In[72]:
+# In[92]:
 
 
 ten_bonds = [
@@ -65,17 +65,39 @@ for isin in ten_bonds:
 
 # # Yield Curve
 
-# In[73]:
+# In[93]:
 
 
 def calc_dirty_price(clean_price, coupon, prev_payment, calc_date):
-    """Convert clean price to dirty price by adding accrued interest."""
+    """Calculate bond's dirty price by adding accrued interest to clean price.
+    
+    Args:
+        clean_price: Clean bond price
+        coupon: Annual coupon rate as decimal
+        prev_payment: Previous coupon payment date
+        calc_date: Calculation date
+    
+    Returns:
+        Dirty price of the bond
+    """
     days_since_payment = (calc_date - prev_payment).days
     accrued_interest = (days_since_payment / 365) * coupon * 100
     return clean_price + accrued_interest
 
 def calc_ytm(price, par, coupon, maturity_date, calc_date, freq=2):
-    """Calculate yield to maturity using actual day count"""
+    """Calculate bond's yield to maturity using actual day count.
+    
+    Args:
+        price: Clean bond price
+        par: Par value
+        coupon: Annual coupon rate as decimal
+        maturity_date: Bond maturity date
+        calc_date: Calculation date
+        freq: Coupon payments per year
+    
+    Returns:
+        Yield to maturity as decimal
+    """
     if price <= 0:
         return np.nan
 
@@ -104,7 +126,16 @@ def calc_ytm(price, par, coupon, maturity_date, calc_date, freq=2):
     ytm_solution = fsolve(ytm_equation, x0=0.05)[0]
     return max(ytm_solution, 0)
 
-def calculate_yield_curves(selected_bonds, ref_date=datetime(2025, 1, 6)):    
+def calculate_yield_curves(selected_bonds, ref_date=datetime(2025, 1, 6)): 
+    """Calculate yield curves for multiple bonds across different dates.
+    
+    Args:
+        selected_bonds: DataFrame with bond data (maturity, coupon, prices)
+        ref_date: Reference date for calculations
+    
+    Returns:
+        DataFrame with yield curves by date and maturity
+    """
     price_dates = [col for col in selected_bonds.columns if 'Jan' in col]
     ytm_data = []
 
@@ -134,14 +165,14 @@ def calculate_yield_curves(selected_bonds, ref_date=datetime(2025, 1, 6)):
 
 def plot_yield_curves(ytm_df):
     """Plot yield curves"""
-    plt.figure(figsize=(12, 8))
+    plt.figure(figsize=(16, 6))
     
     for _, row in ytm_df.iterrows():
         date = row['Date']
         maturities = [int(col[:-1]) for col in row.index if 'Y' in col]
         yields = [row[f"{m}Y"] for m in maturities]
         plt.plot(maturities, yields, marker='o', label=date)
-
+    
     plt.title('Government of Canada Yield Curves')
     plt.xlabel('Years to Maturity')
     plt.ylabel('Yield to Maturity (%)')
@@ -150,7 +181,9 @@ def plot_yield_curves(ytm_df):
     plt.show()
 
 
-# In[ ]:
+# For reference, a YTM curve plotted with interpolation method was also computed. The code is commented out for clarity
+
+# In[94]:
 
 
 # def calc_dirty_price(clean_price, coupon, prev_payment, calc_date):
@@ -248,7 +281,7 @@ def plot_yield_curves(ytm_df):
 #         print(f"Years: {years:.4f}, YTM: {ytm*100:.4f}%")
 
 
-# In[74]:
+# In[95]:
 
 
 # Compute yield curves using already-selected bonds
@@ -262,7 +295,9 @@ print("Yield curves data:")
 print(ytm_df.to_string(index=False))
 
 
-# In[78]:
+# Print computed values for all dates and bonds as reference
+
+# In[96]:
 
 
 # Create a DataFrame with ISIN index and dates as columns
@@ -301,11 +336,21 @@ pd.reset_option('display.float_format')
 
 # # Bootstrap Spot Curve
 
-# In[79]:
+# In[97]:
 
 
 def find_dirty_price(price, coupon, maturity_date, calc_date):
-    """Calculate dirty price by adding accrued interest"""
+    """Calculate bond's dirty price by adding accrued interest to clean price.
+    
+    Args:
+        price: Clean bond price
+        coupon: Annual coupon rate as decimal
+        maturity_date: Bond maturity date
+        calc_date: Calculation date
+    
+    Returns:
+        Dirty price of the bond
+    """
     last_coupon = maturity_date
     while calc_date < last_coupon:
         last_coupon = last_coupon - pd.DateOffset(months=6)
@@ -315,9 +360,15 @@ def find_dirty_price(price, coupon, maturity_date, calc_date):
     return dirty_price
 
 def bootstrap_spot_rates(bonds_df, calc_date, price_col):
-    """
-    Bootstrap spot rates from bond prices using iterative approach
-    Returns list of spot rates corresponding to each bond's maturity
+    """Bootstrap spot rates from bond prices using iterative approach.
+    
+    Args:
+        bonds_df: DataFrame with bond data (maturity, coupon, prices)
+        calc_date: Calculation date
+        price_col: Column name containing bond prices
+    
+    Returns:
+        List of spot rates for each bond maturity
     """
     spot_rates = []
     bonds_df = bonds_df.sort_values('Maturity Date')
@@ -367,7 +418,14 @@ def bootstrap_spot_rates(bonds_df, calc_date, price_col):
     return spot_rates
 
 def calculate_spot_curves(selected_bonds):
-    """Calculate spot curves for each date"""
+    """Generate spot rate curves for each date in the dataset.
+    
+    Args:
+        selected_bonds: DataFrame with bond data (maturity, coupon, prices by date)
+    
+    Returns:
+        DataFrame with spot rates by date and maturity year
+    """
     price_dates = [col for col in selected_bonds.columns if 'Jan' in col]
     spot_data = []
     
@@ -395,7 +453,8 @@ def calculate_spot_curves(selected_bonds):
 
 def plot_spot_curve(spot_df):
     """Plot spot rate curves"""
-    plt.figure(figsize=(10, 6))
+    plt.figure(figsize=(16, 6))
+    
     for _, row in spot_df.iterrows():
         date = row['Date']
         maturities = [int(col[:-1]) for col in row.index if 'Y' in col]
@@ -409,7 +468,7 @@ def plot_spot_curve(spot_df):
     plt.show()
 
 
-# In[80]:
+# In[98]:
 
 
 # Calculate and display the results
@@ -421,7 +480,7 @@ print(spot_df.to_string(index=False))
 plot_spot_curve(spot_df)
 
 
-# In[81]:
+# In[99]:
 
 
 def format_spot_rates_detail(selected_bonds, calc_date_str):
@@ -475,11 +534,18 @@ for isin, bond in selected_bonds.sort_values('Maturity Date').iterrows():
 
 # # Forward Rate
 
-# In[82]:
+# In[100]:
 
 
 def calculate_forward_rates(spot_df):
-    """Calculate forward rates from spot rates"""
+    """Calculate implied forward rates from spot rates curve.
+   
+   Args:
+       spot_df: DataFrame with spot rates by date and maturity
+   
+   Returns:
+       DataFrame with forward rates by date and period
+   """
     forward_data = []
     
     for _, row in spot_df.iterrows():
@@ -501,7 +567,8 @@ def calculate_forward_rates(spot_df):
 
 def plot_forward_curve(forward_df):
     """Plot forward rate curves"""
-    plt.figure(figsize=(10, 6))
+    
+    plt.figure(figsize=(16, 6))
     for _, row in forward_df.iterrows():
         date = row['Date']
         maturities = [int(col.split('-')[1][:-1]) for col in row.index if '1Y-' in col]
@@ -515,7 +582,7 @@ def plot_forward_curve(forward_df):
     plt.show()
 
 
-# In[83]:
+# In[101]:
 
 
 # Calculate and display the results
@@ -528,7 +595,7 @@ print(forward_df.to_string(index=False))
 plot_forward_curve(forward_df)
 
 
-# In[77]:
+# In[102]:
 
 
 def format_forward_rates_detail(spot_df, calc_date_str='Jan 6'):
@@ -574,11 +641,21 @@ pd.reset_option('display.float_format')
 
 # # Covariance Matrices
 
-# In[58]:
+# In[103]:
 
 
 def calculate_log_returns_and_cov(rates_df, rate_type="yield"):
-    """Calculate log returns and covariance matrix"""
+    """Calculate log returns and covariance matrix of rates.
+
+   Args:
+       rates_df: DataFrame containing yield or forward rates
+       rate_type: Type of rates to analyze ("yield" or "forward")
+
+   Returns:
+       Tuple containing:
+       - DataFrame of log returns
+       - Covariance matrix of log returns
+   """
     # Select appropriate columns based on rate type
     if rate_type == "yield":
         rate_cols = [f"{i}Y" for i in range(1, 6)]  # 1Y through 5Y
@@ -589,13 +666,17 @@ def calculate_log_returns_and_cov(rates_df, rate_type="yield"):
     log_returns = pd.DataFrame()
     for col in rate_cols:
         if col in rates_df.columns:
-            values = rates_df[col].values / 100  # Convert from percentage to decimal
+            values = rates_df[col].values  # Use rates directly as they are
             log_returns[col] = np.log(values[1:] / values[:-1])
     
     # Calculate covariance matrix
     cov_matrix = log_returns.cov()
     
     return log_returns, cov_matrix
+
+
+# In[104]:
+
 
 # Calculate covariance matrices for both yield and forward rates
 # For yield rates (5x5 matrix)
@@ -611,11 +692,19 @@ print(forward_cov.to_string())
 
 # # Eigenvalues and Eigenvectors
 
-# In[88]:
+# In[105]:
 
 
 def calculate_log_returns_and_cov(rates_df, rate_type="yield"):
-    """Calculate log returns and covariance matrix"""
+    """Calculate log returns and covariance matrix of rates.
+   
+   Args:
+       rates_df: DataFrame containing rates data
+       rate_type: Type of rates to analyze ("yield" or "forward")
+   
+   Returns:
+       Covariance matrix of log returns
+   """
     if rate_type == "yield":
         rate_cols = [f"{i}Y" for i in range(1, 6)]  # 1Y through 5Y
     else:
@@ -624,13 +713,30 @@ def calculate_log_returns_and_cov(rates_df, rate_type="yield"):
     log_returns = pd.DataFrame()
     for col in rate_cols:
         if col in rates_df.columns:
-            values = rates_df[col].values
+            # Convert to decimal and ensure we're using the correct values
+            values = rates_df[col].values / 100
+            # Calculate log returns
             log_returns[col] = np.log(values[1:] / values[:-1])
     
+    # Calculate covariance matrix without additional scaling
     return log_returns.cov()
 
 def analyze_eigenvalues(cov_matrix):
-    """Calculate and analyze eigenvalues and eigenvectors of covariance matrix"""
+    """Analyze eigenvalues and eigenvectors of covariance matrix with variance explained.
+   
+   Args:
+       cov_matrix: Covariance matrix of rates
+   
+   Returns:
+       Tuple containing:
+       - Formatted eigenvalues
+       - Formatted eigenvectors 
+       - Percentage variance explained
+   """
+    # Ensure matrix is symmetric
+    cov_matrix = (cov_matrix + cov_matrix.T) / 2
+    
+    # Calculate eigenvalues and eigenvectors
     eigenvalues, eigenvectors = np.linalg.eigh(cov_matrix)
     
     # Sort in descending order
@@ -638,40 +744,74 @@ def analyze_eigenvalues(cov_matrix):
     eigenvalues = eigenvalues[idx]
     eigenvectors = eigenvectors[:, idx]
     
-    # Ensure first eigenvector components are positive
-    if eigenvectors[0, 0] < 0:
-        eigenvectors[:, 0] *= -1
-    
-    # Normalize each eigenvector
+    # Normalize each eigenvector (make it unit length)
     for i in range(eigenvectors.shape[1]):
-        norm = np.linalg.norm(eigenvectors[:, i])
-        eigenvectors[:, i] = eigenvectors[:, i] / norm
-        
-    return eigenvalues, eigenvectors
+        norm = np.sqrt(np.sum(eigenvectors[:, i]**2))  # Calculate L2 norm
+        eigenvectors[:, i] = eigenvectors[:, i] / norm  # Normalize
+    
+    # Format output
+    formatted_eigenvals = [f"{x:.6f}" for x in eigenvalues]
+    formatted_eigenvecs = []
+    for i in range(eigenvectors.shape[1]):
+        vec = " ".join([f"{x:.6f}" for x in eigenvectors[:, i]])
+        formatted_eigenvecs.append(f"[{vec}]")
+    
+    return formatted_eigenvals, formatted_eigenvecs
 
-# Calculate for yield rates
-yield_cov = calculate_log_returns_and_cov(spot_df, "yield")
-yield_eigenvals, yield_eigenvecs = analyze_eigenvalues(yield_cov)
-print("Yield Covariance Matrix:")
-print(pd.DataFrame(yield_cov).to_string())
-print("\nYield Eigenvalues:")
-print(yield_eigenvals)
-print("\nYield Eigenvectors:")
-print(yield_eigenvecs)
-
-# Calculate for forward rates
-forward_cov = calculate_log_returns_and_cov(forward_df, "forward")
-forward_eigenvals, forward_eigenvecs = analyze_eigenvalues(forward_cov)
-print("\nForward Covariance Matrix:")
-print(pd.DataFrame(forward_cov).to_string())
-print("\nForward Eigenvalues:")
-print(forward_eigenvals)
-print("\nForward Eigenvectors:")
-print(forward_eigenvecs)
-
-
-# In[ ]:
+def display_analysis(rates_df, rate_type):
+    cov_matrix = calculate_log_returns_and_cov(rates_df, rate_type)
+    eigenvals, eigenvecs = analyze_eigenvalues(cov_matrix)
+    
+    print(f"\n{rate_type.capitalize()} Rate Analysis:")
+    print("Covariance Matrix:")
+    print(pd.DataFrame(cov_matrix).to_string())
+    print("\nEigenvalues:")
+    print(eigenvals)
+    print("\nEigenvectors:")
+    for vec in eigenvecs:
+        print(vec)
 
 
+# In[106]:
 
+
+# Display results for both yield and forward rates
+display_analysis(spot_df, "yield")
+display_analysis(forward_df, "forward")
+
+
+# In[107]:
+
+
+def display_analysis2(rates_df: pd.DataFrame, rate_type: str) -> None:
+   """Display PCA results for rate covariance matrix.
+   
+   Args:
+       rates_df: DataFrame containing rates data
+       rate_type: Type of rates ("yield" or "forward")
+   
+   Returns:
+       None (prints analysis results)
+   """
+   cov_matrix = calculate_log_returns_and_cov(rates_df, rate_type)
+   eigenvals, eigenvecs = analyze_eigenvalues(cov_matrix)
+   
+   # Calculate percentage of variation explained
+   eigenvals_float = [float(x) for x in eigenvals]  # Convert string eigenvalues to float
+   total_var = sum(eigenvals_float)
+   var_explained = [f"{(val/total_var)*100:.2f}%" for val in eigenvals_float]
+
+   print(f"\n{rate_type.capitalize()} Rate Analysis:")
+   print("Covariance Matrix:")
+   print(pd.DataFrame(cov_matrix).to_string())
+   print("\nEigenvalues and Variation Explained:")
+   for i in range(len(eigenvals)):
+       print(f"PC{i+1}:")
+       print(f"  Eigenvalue: {eigenvals[i]}")
+       print(f"  % of Variation: {var_explained[i]}")
+       print(f"  Eigenvector: {eigenvecs[i]}")
+
+# Display results for both yield and forward rates, including % variation of PCs
+display_analysis2(spot_df, "yield")
+display_analysis2(forward_df, "forward")
 
